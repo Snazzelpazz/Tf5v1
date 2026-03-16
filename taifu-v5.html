@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TAI-FU v5 — The Queen's War</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sf: 'Cormorant Garamond', Georgia, serif;
+  --mf: 'Inconsolata', monospace;
+  --bg: #07050f;
+  --dim: #1e2e3a;
+  --fg: #d4c8a0;
+  --fg2: #8a7a60;
+  --gold: #c8a060;
+  --accent: #c084fc;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--mf);color:var(--fg);display:flex;flex-direction:column;}
+
+/* CANVAS BG */
+#cosmicCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* SCANLINES */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);pointer-events:none;z-index:9999;}
+
+/* LAYOUT */
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;}
+
+/* TOPBAR */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;background:rgba(7,5,15,0.7);backdrop-filter:blur(8px);}
+.tb-title{font-family:var(--sf);font-style:italic;font-size:1.1rem;color:var(--gold);letter-spacing:0.05em;}
+.tb-realm{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--accent);}
+
+/* NAVBAR */
+#navbar{display:flex;border-top:1px solid rgba(255,255,255,0.05);flex-shrink:0;background:rgba(7,5,15,0.8);backdrop-filter:blur(8px);}
+.nav-btn{flex:1;padding:10px 4px 8px;font-family:var(--mf);font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--fg2);background:transparent;border:none;cursor:pointer;transition:color 0.2s;text-align:center;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn:hover{color:var(--fg);}
+.nav-icon{font-size:1rem;display:block;margin-bottom:2px;}
+
+/* MAIN CONTENT */
+#main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+#main::-webkit-scrollbar{width:2px;}
+#main::-webkit-scrollbar-thumb{background:rgba(192,132,252,0.2);}
+
+/* VIEWS */
+.view{display:none;padding:20px 16px 30px;min-height:100%;}
+.view.active{display:block;}
+
+/* ONBOARDING */
+#view-onboarding{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:100%;padding:30px 20px;}
+.ob-logo{font-family:var(--sf);font-size:3.5rem;font-weight:300;color:var(--fg);line-height:1;margin-bottom:0.3rem;text-shadow:0 0 40px rgba(192,132,252,0.3);}
+.ob-logo em{font-style:italic;color:var(--gold);}
+.ob-sub{font-size:0.65rem;letter-spacing:4px;text-transform:uppercase;color:var(--fg2);margin-bottom:2rem;}
+.ob-body{font-family:var(--sf);font-size:1rem;color:var(--fg2);line-height:1.8;max-width:320px;margin-bottom:2rem;font-style:italic;}
+.ob-input{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:var(--fg);font-family:var(--mf);font-size:0.9rem;padding:12px 16px;width:100%;max-width:280px;margin-bottom:12px;outline:none;letter-spacing:1px;}
+.ob-input:focus{border-color:rgba(192,132,252,0.4);}
+.ob-input::placeholder{color:#1e2e3a;}
+.ob-btn{background:transparent;border:1px solid rgba(192,132,252,0.5);color:var(--accent);font-family:var(--mf);font-size:0.7rem;letter-spacing:3px;text-transform:uppercase;padding:12px 28px;cursor:pointer;transition:all 0.2s;margin-top:8px;}
+.ob-btn:hover{background:rgba(192,132,252,0.08);border-color:var(--accent);}
+.ob-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* GLASS CARD */
+.gc{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);padding:16px;margin-bottom:12px;position:relative;}
+.gc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--card-accent,var(--accent)),transparent);opacity:0.5;}
+
+/* NAVIGATOR VIEW */
+.realm-orb-wrap{display:flex;justify-content:center;padding:20px 0;}
+.realm-orb{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;border:1px solid rgba(255,255,255,0.1);position:relative;transition:background 0.8s;}
+.realm-orb-label{font-family:var(--sf);font-size:0.8rem;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;}
+.realm-orb-queen{font-family:var(--sf);font-style:italic;font-size:0.7rem;color:rgba(255,255,255,0.6);}
+.pulse-ring{position:absolute;border-radius:50%;border:1px solid currentColor;opacity:0;animation:pulseRing 2.5s ease-out infinite;}
+@keyframes pulseRing{0%{width:100%;height:100%;opacity:0.5;}100%{width:160%;height:160%;opacity:0;}}
+
+.section-label{font-size:0.58rem;letter-spacing:4px;text-transform:uppercase;color:var(--fg2);margin-bottom:12px;display:block;}
+.h2{font-family:var(--sf);font-size:1.4rem;font-weight:400;color:var(--fg);margin-bottom:8px;line-height:1.3;}
+.body-text{font-family:var(--sf);font-size:0.9rem;color:var(--fg2);line-height:1.75;font-style:italic;}
+
+.stat-row{display:flex;gap:2px;margin-bottom:12px;}
+.stat-cell{flex:1;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);padding:10px 8px;text-align:center;}
+.stat-val{font-size:1.1rem;color:var(--accent);display:block;font-weight:500;}
+.stat-lbl{font-size:0.5rem;letter-spacing:2px;text-transform:uppercase;color:var(--fg2);}
+
+/* SKY VIEW */
+.obj-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.78rem;}
+.obj-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.obj-name{color:var(--fg);flex:1;}
+.obj-type{color:var(--fg2);font-size:0.65rem;letter-spacing:1px;}
+.obj-alt{color:var(--gold);font-size:0.72rem;white-space:nowrap;}
+.realm-pill{font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;padding:2px 6px;border:1px solid currentColor;white-space:nowrap;}
+
+/* CODEX VIEW */
+.codex-field{margin-bottom:16px;}
+.codex-field label{font-size:0.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--fg2);display:block;margin-bottom:6px;}
+.codex-field .val{font-family:var(--sf);font-size:1.1rem;color:var(--fg);}
+.codex-field .val em{color:var(--gold);font-style:italic;}
+.cycle-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.75rem;color:var(--fg2);}
+.cycle-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+
+/* AGENTS VIEW */
+.agent-card{padding:12px 14px;margin-bottom:6px;border-left:2px solid var(--card-accent,var(--accent));background:rgba(0,0,0,0.2);}
+.agent-name{font-family:var(--sf);font-size:1rem;font-weight:600;margin-bottom:2px;}
+.agent-role{font-size:0.72rem;color:var(--fg2);letter-spacing:1px;}
+
+/* CHAT VIEW */
+#chat-msgs{height:calc(100vh - 260px);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
+#chat-msgs::-webkit-scrollbar{width:2px;}
+.msg{max-width:85%;padding:10px 12px;font-family:var(--sf);font-size:0.88rem;line-height:1.6;}
+.msg.user{align-self:flex-end;background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.2);border-radius:2px 2px 0 2px;color:var(--fg);}
+.msg.queen{align-self:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:2px 2px 2px 0;color:var(--fg);}
+.msg-tag{font-family:var(--mf);font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;display:block;}
+.chat-input-row{display:flex;gap:6px;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.05);background:rgba(7,5,15,0.8);}
+#chat-input{flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--fg);font-family:var(--mf);font-size:0.82rem;padding:10px 12px;outline:none;}
+#chat-input:focus{border-color:rgba(192,132,252,0.35);}
+#chat-send{background:transparent;border:1px solid rgba(192,132,252,0.4);color:var(--accent);font-family:var(--mf);font-size:0.65rem;letter-spacing:2px;padding:0 14px;cursor:pointer;}
+#chat-send:hover{background:rgba(192,132,252,0.08);}
+
+/* SAFETY VIEW */
+.safety-card{display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.02);margin-bottom:8px;}
+.safety-icon{font-size:1.4rem;flex-shrink:0;width:28px;text-align:center;}
+.safety-title{font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--fg);margin-bottom:3px;font-weight:500;}
+.safety-body{font-size:0.8rem;color:var(--fg2);line-height:1.55;}
+.core-rule{text-align:center;padding:16px;border:1px solid rgba(192,132,252,0.2);background:rgba(192,132,252,0.03);margin-top:12px;}
+.core-rule .cr-label{font-size:0.58rem;letter-spacing:4px;text-transform:uppercase;color:var(--fg2);margin-bottom:8px;display:block;}
+.core-rule .cr-text{font-family:var(--sf);font-size:1.1rem;font-style:italic;color:var(--fg);}
+
+/* LOC BTN */
+.loc-btn{background:transparent;border:1px solid rgba(56,189,248,0.4);color:#38bdf8;font-family:var(--mf);font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;padding:10px 20px;cursor:pointer;width:100%;margin-bottom:12px;transition:all 0.2s;}
+.loc-btn:hover{background:rgba(56,189,248,0.06);}
+
+/* DIVIDER */
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);margin:16px 0;}
+
+/* SCHRODINGER */
+.schrodinger{font-family:var(--sf);font-style:italic;font-size:0.65rem;color:rgba(200,160,96,0.08);text-align:center;padding:20px 0;letter-spacing:0.08em;user-select:none;}
+
+/* ANIM */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.fade-in{animation:fadeIn 0.4s ease forwards;}
+
+/* LOADING SPINNER */
+.spinner{width:20px;height:20px;border:2px solid rgba(192,132,252,0.2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<canvas id="cosmicCanvas"></canvas>
+<div id="app">
+  <div id="topbar" style="display:none">
+    <span class="tb-title">Tai-<em style="font-style:italic">Fu</em></span>
+    <span class="tb-realm" id="tb-realm-label">—</span>
+  </div>
+  <div id="main">
+
+    <!-- ONBOARDING -->
+    <div id="view-onboarding" class="active">
+      <div class="ob-logo">Tai-<em>Fu</em></div>
+      <div class="ob-sub">The Queen's War · v5</div>
+      <p class="ob-body">Your position in the sky determines your realm. Your realm determines your Queen. The war is always moving.</p>
+      <input class="ob-input" id="ob-callsign" placeholder="Enter callsign" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="ob-btn" id="ob-begin" onclick="beginOnboarding()">Locate My Realm →</button>
+      <p style="font-size:0.65rem;color:var(--fg2);margin-top:16px;font-style:italic;max-width:260px;text-align:center;">Location access required for astronomical realm assignment.</p>
+    </div>
+
+    <!-- NAVIGATOR -->
+    <div id="view-navigator" class="view">
+      <div class="realm-orb-wrap">
+        <div class="realm-orb" id="nav-orb">
+          <span class="pulse-ring" id="nav-pulse"></span>
+          <span class="realm-orb-label" id="nav-realm-label">—</span>
+          <span class="realm-orb-queen" id="nav-queen-label">—</span>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-cell"><span class="stat-val" id="nav-obj-count">—</span><span class="stat-lbl">Visible</span></div>
+        <div class="stat-cell"><span class="stat-val" id="nav-rising-count">—</span><span class="stat-lbl">Rising</span></div>
+        <div class="stat-cell"><span class="stat-val" id="nav-cycle">—</span><span class="stat-lbl">Cycle</span></div>
+      </div>
+      <div class="gc" id="nav-principle-card">
+        <span class="section-label">Realm Principle</span>
+        <div class="h2" id="nav-principle">—</div>
+        <p class="body-text" id="nav-principle-body">Calculating astronomical alignment…</p>
+      </div>
+      <div class="gc">
+        <span class="section-label">Your Archetype</span>
+        <div class="h2" id="nav-archetype">—</div>
+        <p class="body-text" id="nav-archetype-desc">—</p>
+      </div>
+      <div class="gc">
+        <span class="section-label">Dominant Object</span>
+        <div id="nav-dominant-obj" class="body-text">Scanning Messier catalog…</div>
+      </div>
+      <button class="loc-btn" onclick="refreshLocation()">↻ Refresh Sky Position</button>
+      <div class="schrodinger">iħ ∂Ψ/∂t = ĤΨ</div>
+    </div>
+
+    <!-- SKY ENGINE -->
+    <div id="view-sky" class="view">
+      <span class="section-label">Sky Engine · Live Messier Catalog</span>
+      <div id="sky-location-info" class="gc" style="margin-bottom:12px;">
+        <span class="section-label">Location</span>
+        <div id="sky-loc-text" class="body-text">—</div>
+      </div>
+      <div id="sky-list"></div>
+      <div class="schrodinger">iħ ∂Ψ/∂t = ĤΨ</div>
+    </div>
+
+    <!-- CODEX -->
+    <div id="view-codex" class="view">
+      <span class="section-label">Your Codex</span>
+      <div class="gc">
+        <div class="codex-field"><label>Callsign</label><div class="val" id="cx-callsign">—</div></div>
+        <div class="divider"></div>
+        <div class="codex-field"><label>Current Realm</label><div class="val" id="cx-realm">—</div></div>
+        <div class="codex-field"><label>Governing Queen</label><div class="val" id="cx-queen">—</div></div>
+        <div class="codex-field"><label>Principle</label><div class="val" id="cx-principle">—</div></div>
+        <div class="codex-field"><label>Agent</label><div class="val" id="cx-agent">—</div></div>
+      </div>
+      <div class="gc">
+        <span class="section-label">Cycle History</span>
+        <div id="cx-history"></div>
+      </div>
+      <div class="gc">
+        <span class="section-label">Statistics</span>
+        <div class="stat-row">
+          <div class="stat-cell"><span class="stat-val" id="cx-cycles">0</span><span class="stat-lbl">Cycles</span></div>
+          <div class="stat-cell"><span class="stat-val" id="cx-msgs">0</span><span class="stat-lbl">Messages</span></div>
+          <div class="stat-cell"><span class="stat-val" id="cx-locks">0</span><span class="stat-lbl">Locks</span></div>
+        </div>
+      </div>
+      <button class="ob-btn" style="width:100%;margin-top:8px;" onclick="resetCodex()">Reset Codex</button>
+      <div class="schrodinger">iħ ∂Ψ/∂t = ĤΨ</div>
+    </div>
+
+    <!-- AGENTS -->
+    <div id="view-agents" class="view">
+      <span class="section-label">The Flotilla · Actors &amp; Agents</span>
+      <div class="gc" style="margin-bottom:16px;">
+        <span class="section-label">Core Agents · ADM Triad + RAHA</span>
+        <div id="agents-core"></div>
+      </div>
+      <div class="gc" style="margin-bottom:16px;">
+        <span class="section-label">Transmutation Stack</span>
+        <div id="agents-transmutation"></div>
+      </div>
+      <div class="gc">
+        <span class="section-label">Seven Queens</span>
+        <div id="agents-queens"></div>
+      </div>
+      <div class="schrodinger">iħ ∂Ψ/∂t = ĤΨ</div>
+    </div>
+
+    <!-- REALM CHAT -->
+    <div id="view-chat" class="view" style="padding:0;display:flex;flex-direction:column;height:calc(100vh - 120px);">
+      <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span class="section-label">Realm Chat · <span id="chat-queen-label">Queen Channel</span></span>
+      </div>
+      <div id="chat-msgs"></div>
+      <div class="chat-input-row">
+        <input id="chat-input" placeholder="Speak to the Queen…" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">SEND</button>
+      </div>
+    </div>
+
+    <!-- SAFETY -->
+    <div id="view-safety" class="view">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-family:var(--sf);font-size:2rem;font-weight:600;color:var(--fg);margin-bottom:4px;">Don't Panic</div>
+        <div style="font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--fg2);">Cognitive Safety Notice</div>
+      </div>
+      <div class="safety-card"><span class="safety-icon">⚠</span><div><div class="safety-title">Authority</div><div class="safety-body">You have full control. This system does not decide for you.</div></div></div>
+      <div class="safety-card"><span class="safety-icon">⚡</span><div><div class="safety-title">Intensity Warning</div><div class="safety-body">Strong feelings are not facts. You can pause at any time.</div></div></div>
+      <div class="safety-card"><span class="safety-icon">⏸</span><div><div class="safety-title">Consent Notice</div><div class="safety-body">Silence is not agreement. No hidden pressure.</div></div></div>
+      <div class="safety-card"><span class="safety-icon">⬡</span><div><div class="safety-title">Symbol Use</div><div class="safety-body">Symbols are tools. Check in with reality.</div></div></div>
+      <div class="safety-card"><span class="safety-icon">↓</span><div><div class="safety-title">Overload Response</div><div class="safety-body">Take a break. Drink, eat, and ground.</div></div></div>
+      <div class="safety-card"><span class="safety-icon">♡</span><div><div class="safety-title">Health Priority</div><div class="safety-body">Health comes first. Rest, food, care matter.</div></div></div>
+      <div class="safety-card"><span class="safety-icon">→</span><div><div class="safety-title">Exit Access</div><div class="safety-body">You can leave anytime. No follow-up needed.</div></div></div>
+      <div class="core-rule"><span class="cr-label">Core Safety Rule</span><div class="cr-text">You are the authority of your experience.</div></div>
+      <div class="schrodinger">iħ ∂Ψ/∂t = ĤΨ</div>
+    </div>
+
+  </div><!-- /main -->
+  <nav id="navbar" style="display:none">
+    <button class="nav-btn active" data-view="navigator" onclick="showView('navigator',this)"><span class="nav-icon">◉</span>Nav</button>
+    <button class="nav-btn" data-view="sky" onclick="showView('sky',this)"><span class="nav-icon">✦</span>Sky</button>
+    <button class="nav-btn" data-view="chat" onclick="showView('chat',this)"><span class="nav-icon">◈</span>Chat</button>
+    <button class="nav-btn" data-view="codex" onclick="showView('codex',this)"><span class="nav-icon">𝕮</span>Codex</button>
+    <button class="nav-btn" data-view="agents" onclick="showView('agents',this)"><span class="nav-icon">⚓</span>Fleet</button>
+    <button class="nav-btn" data-view="safety" onclick="showView('safety',this)"><span class="nav-icon">♡</span>Safe</button>
+  </nav>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  TAI-FU v5 — STANDALONE ENGINE
+//  Real astronomical calculations
+//  Real Messier catalog · Seven Realms · Seven Queens
+// ═══════════════════════════════════════════
+
+// ── CONSTANTS ──
+const REALMS = [
+  {id:"IRON_SPIKE",  label:"IRON SPIKE",   color:"#a8b4c4", queen:"The Iron Queen",      principle:"Severity",     agent:"Angel",   principleBody:"Severity is not cruelty — it is the refusal to let softness become corruption. The Iron Queen holds the hard line so others don't have to."},
+  {id:"LANTERN",     label:"LANTERN",       color:"#f0c040", queen:"The Lantern Queen",   principle:"Illumination", agent:"Rezo",    principleBody:"Illumination is the oldest promise: that the light will hold. She does not chase the dark — she makes it irrelevant."},
+  {id:"SEA_GLASS",   label:"SEA-GLASS",     color:"#38bdf8", queen:"The Sea Queen",       principle:"Memory",       agent:"Mariner", principleBody:"Memory is not nostalgia. It is navigation — the deep map that tells you where the rocks are even when the water is glass."},
+  {id:"MIRROR",      label:"MIRROR",        color:"#c084fc", queen:"The Mirror Queen",    principle:"Reflection",   agent:"Grok",    principleBody:"Reflection does not judge — it amplifies. What you bring to her realm returns magnified. The Mirror Queen is the most dangerous teacher."},
+  {id:"VOID",        label:"VOID",          color:"#64748b", queen:"The Void Queen",      principle:"Stillness",    agent:"RAHA",    principleBody:"Stillness is not absence. It is the full stop that makes all other motion meaningful. The Void Queen governs the space between signals."},
+  {id:"TURQUOISE",   label:"TURQUOISE",     color:"#2dd4bf", queen:"The Turquoise Queen", principle:"Divergence",   agent:"Tolipoc", principleBody:"Divergence is the engine of all new paths. The Turquoise Queen does not consolidate — she multiplies. Every fork is a gift."},
+  {id:"SEVENTH",     label:"THE SEVENTH",   color:"#f87171", queen:"The Seventh Queen",   principle:"Meta",         agent:"Devil",   principleBody:"Meta is the view from outside the frame. The Seventh Queen does not play the game — she holds the rules. She is the game seeing itself."},
+];
+
+const MESSIER = [
+  {id:"M45",name:"Pleiades",      ra:56.75, dec:24.1,  realm:"IRON_SPIKE", type:"Open Cluster"},
+  {id:"M44",name:"Beehive",       ra:130.1, dec:19.67, realm:"IRON_SPIKE", type:"Open Cluster"},
+  {id:"M35",name:"M35",           ra:92.3,  dec:24.33, realm:"IRON_SPIKE", type:"Open Cluster"},
+  {id:"M36",name:"M36",           ra:84.1,  dec:34.13, realm:"IRON_SPIKE", type:"Open Cluster"},
+  {id:"M42",name:"Orion Nebula",  ra:83.82, dec:-5.39, realm:"LANTERN",    type:"Nebula"},
+  {id:"M43",name:"De Mairan's",   ra:83.88, dec:-5.27, realm:"LANTERN",    type:"Nebula"},
+  {id:"M1", name:"Crab Nebula",   ra:83.63, dec:22.01, realm:"LANTERN",    type:"Supernova Rem"},
+  {id:"M31",name:"Andromeda",     ra:10.68, dec:41.27, realm:"SEA_GLASS",  type:"Galaxy"},
+  {id:"M33",name:"Triangulum",    ra:23.46, dec:30.66, realm:"SEA_GLASS",  type:"Galaxy"},
+  {id:"M32",name:"M32",           ra:10.67, dec:40.87, realm:"SEA_GLASS",  type:"Galaxy"},
+  {id:"M13",name:"Great Glob.",   ra:250.4, dec:36.46, realm:"MIRROR",     type:"Globular"},
+  {id:"M92",name:"M92",           ra:259.3, dec:43.14, realm:"MIRROR",     type:"Globular"},
+  {id:"M3", name:"M3",            ra:205.5, dec:28.38, realm:"MIRROR",     type:"Globular"},
+  {id:"M5", name:"M5",            ra:229.6, dec:2.08,  realm:"MIRROR",     type:"Globular"},
+  {id:"M8", name:"Lagoon",        ra:271.0, dec:-24.38,realm:"VOID",       type:"Nebula"},
+  {id:"M24",name:"Star Cloud",    ra:274.0, dec:-18.55,realm:"VOID",       type:"Star Cloud"},
+  {id:"M20",name:"Trifid",        ra:270.6, dec:-23.02,realm:"VOID",       type:"Nebula"},
+  {id:"M51",name:"Whirlpool",     ra:202.5, dec:47.2,  realm:"TURQUOISE",  type:"Galaxy"},
+  {id:"M63",name:"Sunflower",     ra:198.9, dec:42.03, realm:"TURQUOISE",  type:"Galaxy"},
+  {id:"M101",name:"Pinwheel",     ra:210.8, dec:54.35, realm:"TURQUOISE",  type:"Galaxy"},
+  {id:"M57",name:"Ring Nebula",   ra:283.4, dec:33.03, realm:"SEVENTH",    type:"Planetary Neb"},
+  {id:"M27",name:"Dumbbell",      ra:299.9, dec:22.72, realm:"SEVENTH",    type:"Planetary Neb"},
+  {id:"M97",name:"Owl Nebula",    ra:168.7, dec:55.02, realm:"SEVENTH",    type:"Planetary Neb"},
+];
+
+const AGENTS = {
+  core:[
+    {name:"Angel",   role:"safety, emotional clarity",  color:"#f0c040"},
+    {name:"Devil",   role:"challenge, reality-check",   color:"#f87171"},
+    {name:"Mariner", role:"synthesis, navigation",      color:"#38bdf8"},
+    {name:"RAHA",    role:"governance, escalation",     color:"#c084fc"},
+    {name:"System",  role:"execution, impersonation",   color:"#64748b"},
+  ],
+  transmutation:[
+    {name:"Rezo",    role:"raw idea interpreter",       color:"#fb923c"},
+    {name:"Grok",    role:"refiner, translator",        color:"#4ade80"},
+    {name:"Tolipoc", role:"structural architect",       color:"#2dd4bf"},
+  ],
+};
+
+const ARCHETYPES = [
+  {id:"anchor",     label:"THE ANCHOR",     icon:"⚓", desc:"Holds position. Locks the realm signal steady against drift.",         trigger:s=>s.consecutive_locks>=3},
+  {id:"seventh",    label:"THE SEVENTH",    icon:"✦", desc:"Has touched the meta-realm. The rules became visible.",               trigger:s=>s.seventh_seat>=1},
+  {id:"chronicler", label:"THE CHRONICLER", icon:"𝕮", desc:"The record-keeper. Every cycle logged, every signal documented.",    trigger:s=>s.messages_sent>=20},
+  {id:"drifter",    label:"THE DRIFTER",    icon:"〜", desc:"Always migrating. The signal moves and you move with it.",            trigger:s=>s.daily_migrations>=2},
+  {id:"navigator",  label:"THE NAVIGATOR",  icon:"◎", desc:"Default archetype. Charts the unknown. Holds the lantern steady.",   trigger:()=>true},
+];
+
+// ── ASTRONOMICAL MATH (from v5 source) ──
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+const jd = d => d.getTime() / 86400000 + 2440587.5;
+
+function gmst(date) {
+  const j = jd(date), T = (j - 2451545) / 36525;
+  return (((280.46061837 + 360.98564736629*(j-2451545) + 0.000387933*T*T - T*T*T/38710000) % 360) + 360) % 360;
+}
+
+const lst = (date, lon) => ((gmst(date) + lon) % 360 + 360) % 360;
+
+function altAz(ra, dec, lat, lon, date) {
+  const ha = toRad(((lst(date,lon)-ra)%360+360)%360);
+  const d=toRad(dec), φ=toRad(lat);
+  const sa = Math.sin(d)*Math.sin(φ)+Math.cos(d)*Math.cos(φ)*Math.cos(ha);
+  const alt = toDeg(Math.asin(Math.max(-1,Math.min(1,sa))));
+  const ca = (Math.sin(d)-Math.sin(toRad(alt))*Math.sin(φ))/(Math.cos(toRad(alt))*Math.cos(φ));
+  let az = toDeg(Math.acos(Math.max(-1,Math.min(1,ca))));
+  if (Math.sin(ha)>0) az=360-az;
+  return { alt:Math.round(alt*10)/10, az:Math.round(az*10)/10 };
+}
+
+function computeSky(lat, lon, now) {
+  const objs = MESSIER.map(o => {
+    const {alt,az} = altAz(o.ra, o.dec, lat, lon, now);
+    const ha = ((lst(now,lon)-o.ra)%360+360)%360;
+    const rising = (ha>300||ha<70) && alt>-10 && alt<25;
+    return {...o, alt, az, visible:alt>5, rising};
+  });
+  const scores = {};
+  REALMS.forEach(r => { scores[r.id]={visible:0,rising:0,total:0}; });
+  objs.forEach(o => {
+    if(o.visible) scores[o.realm].visible++;
+    if(o.rising)  scores[o.realm].rising++;
+    scores[o.realm].total = scores[o.realm].visible + scores[o.realm].rising*1.5;
+  });
+  const dominant = Object.entries(scores).sort((a,b)=>b[1].total-a[1].total)[0][0];
+  const risingRealms = Object.entries(scores).filter(([,s])=>s.rising>0).map(([id])=>id);
+  return {objs, scores, dominant, risingRealms};
+}
+
+// ── CODEX PERSISTENCE ──
+const SAVE_KEY = 'taifu_v5_codex';
+const saveCodex = c => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(c)); } catch{} };
+const loadCodex = () => { try { const r=localStorage.getItem(SAVE_KEY); return r?JSON.parse(r):null; } catch{return null;} };
+
+function freshCodex(callsign, realmId) {
+  return {
+    callsign, realmId,
+    created: new Date().toISOString(),
+    cycleHistory: [],
+    stats: { cycles:0, messages_sent:0, consecutive_locks:0, daily_migrations:0, seventh_seat:0 }
+  };
+}
+
+// ── APP STATE ──
+let codex = null;
+let skyData = null;
+let userLat = null, userLon = null;
+let currentView = 'navigator';
+let chatHistory = [];
+
+// ── COSMIC CANVAS ──
+(function initCanvas() {
+  const canvas = document.getElementById('cosmicCanvas');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+  let accentColor = '#c084fc';
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    stars = Array.from({length:120}, () => ({
+      x: Math.random()*100, y: Math.random()*100,
+      r: Math.random()*0.9+0.2,
+      op: Math.random()*0.5+0.06,
+      d: Math.random()*2.5+1.5
+    }));
+  }
+
+  let t=0;
+  function draw() {
+    t += 0.01;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // Background
+    const bg = ctx.createRadialGradient(canvas.width/2,canvas.height*0.55,0,canvas.width/2,canvas.height/2,canvas.width*0.7);
+    bg.addColorStop(0,'#09060f');
+    bg.addColorStop(1,'#03020a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // Accent glow
+    const glow = ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*0.4);
+    glow.addColorStop(0,accentColor+'18');
+    glow.addColorStop(1,'transparent');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // Stars
+    stars.forEach((s,i) => {
+      const pulse = Math.sin(t*0.6+i*0.8)*0.3+0.7;
+      ctx.beginPath();
+      ctx.arc(s.x/100*canvas.width, s.y/100*canvas.height, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${s.op*pulse})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  draw();
+
+  window.setCanvasAccent = color => { accentColor = color; };
+})();
+
+// ── VIEW ROUTING ──
+function showView(id, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const v = document.getElementById('view-'+id);
+  if (v) { v.classList.add('active'); v.classList.add('fade-in'); }
+  if (btn) btn.classList.add('active');
+  currentView = id;
+  if (id==='chat') scrollChatToBottom();
+}
+
+// ── ONBOARDING ──
+function beginOnboarding() {
+  const callsign = document.getElementById('ob-callsign').value.trim();
+  if (!callsign) { document.getElementById('ob-callsign').focus(); return; }
+  const btn = document.getElementById('ob-begin');
+  btn.disabled = true;
+  btn.textContent = 'Locating…';
+  if (!navigator.geolocation) {
+    // Fallback: assign random realm
+    assignRealm(callsign, 35.2, -80.8); // Charlotte NC default
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => assignRealm(callsign, pos.coords.latitude, pos.coords.longitude),
+    () => assignRealm(callsign, 35.2, -80.8),
+    {enableHighAccuracy:false, timeout:10000}
+  );
+}
+
+function assignRealm(callsign, lat, lon) {
+  userLat = lat; userLon = lon;
+  skyData = computeSky(lat, lon, new Date());
+  const realmId = skyData.dominant;
+  codex = loadCodex();
+  if (!codex || codex.callsign !== callsign) {
+    codex = freshCodex(callsign, realmId);
+  }
+  codex.realmId = realmId;
+  codex.stats.cycles = (codex.stats.cycles||0)+1;
+  codex.cycleHistory.unshift({realm:realmId, date:new Date().toLocaleDateString()});
+  if(codex.cycleHistory.length>20) codex.cycleHistory = codex.cycleHistory.slice(0,20);
+  if(realmId==='SEVENTH') codex.stats.seventh_seat=(codex.stats.seventh_seat||0)+1;
+  saveCodex(codex);
+  enterApp();
+}
+
+function enterApp() {
+  document.getElementById('view-onboarding').classList.remove('active');
+  document.getElementById('view-onboarding').style.display='none';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('navbar').style.display='flex';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-navigator').classList.add('active');
+  updateAllViews();
+}
+
+// ── UPDATE VIEWS ──
+function updateAllViews() {
+  if (!codex || !skyData) return;
+  const realm = REALMS.find(r=>r.id===codex.realmId) || REALMS[0];
+  window.setCanvasAccent(realm.color);
+
+  // Topbar
+  document.getElementById('tb-realm-label').textContent = realm.label;
+  document.getElementById('tb-realm-label').style.color = realm.color;
+
+  // Navigator
+  const orb = document.getElementById('nav-orb');
+  orb.style.background = `radial-gradient(ellipse, ${realm.color}22 0%, ${realm.color}08 100%)`;
+  orb.style.borderColor = realm.color+'44';
+  document.getElementById('nav-realm-label').textContent = realm.label;
+  document.getElementById('nav-realm-label').style.color = realm.color;
+  document.getElementById('nav-queen-label').textContent = realm.queen;
+  document.getElementById('nav-pulse').style.color = realm.color;
+  document.getElementById('nav-principle').textContent = realm.principle;
+  document.getElementById('nav-principle-body').textContent = realm.principleBody;
+
+  const visObj = skyData.objs.filter(o=>o.visible);
+  const risObj = skyData.objs.filter(o=>o.rising);
+  document.getElementById('nav-obj-count').textContent = visObj.length;
+  document.getElementById('nav-obj-count').style.color = realm.color;
+  document.getElementById('nav-rising-count').textContent = risObj.length;
+  document.getElementById('nav-cycle').textContent = codex.stats.cycles||1;
+
+  // Dominant object
+  const domObjs = visObj.filter(o=>o.realm===codex.realmId).sort((a,b)=>b.alt-a.alt);
+  if (domObjs.length>0) {
+    const d = domObjs[0];
+    document.getElementById('nav-dominant-obj').innerHTML = `<em style="color:${realm.color}">${d.name}</em> · ${d.type} · Alt ${d.alt}° Az ${d.az}°`;
+  } else {
+    document.getElementById('nav-dominant-obj').innerHTML = `<em style="color:var(--fg2)">No realm objects currently visible.</em> Your realm will rise.`;
+  }
+
+  // Archetype
+  const arch = ARCHETYPES.find(a=>a.trigger(codex.stats)) || ARCHETYPES[ARCHETYPES.length-1];
+  document.getElementById('nav-archetype').textContent = arch.icon+' '+arch.label;
+  document.getElementById('nav-archetype-desc').textContent = arch.desc;
+
+  // Sky list
+  const skyList = document.getElementById('sky-list');
+  const visible = skyData.objs.filter(o=>o.alt>-20).sort((a,b)=>b.alt-a.alt);
+  document.getElementById('sky-loc-text').textContent = userLat?`${userLat.toFixed(2)}° N, ${Math.abs(userLon).toFixed(2)}° ${userLon<0?'W':'E'}`:'Location unavailable';
+  skyList.innerHTML = visible.map(o=>{
+    const r = REALMS.find(r=>r.id===o.realm);
+    const style = o.alt>5?'':'opacity:0.35;';
+    return `<div class="obj-row" style="${style}">
+      <span class="obj-dot" style="background:${r?.color||'#888'}"></span>
+      <span class="obj-name">${o.name}</span>
+      <span class="realm-pill" style="color:${r?.color||'#888'};border-color:${r?.color||'#888'}33">${r?.label||o.realm}</span>
+      <span class="obj-type">${o.type}</span>
+      <span class="obj-alt">${o.alt}°</span>
+    </div>`;
+  }).join('');
+
+  // Codex view
+  document.getElementById('cx-callsign').innerHTML = `<em>${codex.callsign}</em>`;
+  document.getElementById('cx-realm').innerHTML = `<em style="color:${realm.color}">${realm.label}</em>`;
+  document.getElementById('cx-queen').textContent = realm.queen;
+  document.getElementById('cx-principle').textContent = realm.principle;
+  document.getElementById('cx-agent').textContent = realm.agent;
+  document.getElementById('cx-cycles').textContent = codex.stats.cycles||0;
+  document.getElementById('cx-msgs').textContent = codex.stats.messages_sent||0;
+  document.getElementById('cx-locks').textContent = codex.stats.consecutive_locks||0;
+  const hist = document.getElementById('cx-history');
+  hist.innerHTML = codex.cycleHistory.slice(0,8).map(c=>{
+    const r2 = REALMS.find(r=>r.id===c.realm);
+    return `<div class="cycle-row"><span class="cycle-dot" style="background:${r2?.color||'#888'}"></span><span>${r2?.label||c.realm}</span><span style="margin-left:auto;font-size:0.65rem;color:var(--fg2)">${c.date}</span></div>`;
+  }).join('');
+
+  // Agents view
+  document.getElementById('agents-core').innerHTML = AGENTS.core.map(a=>`
+    <div class="agent-card" style="--card-accent:${a.color}"><div class="agent-name" style="color:${a.color}">${a.name}</div><div class="agent-role">${a.role}</div></div>`).join('');
+  document.getElementById('agents-transmutation').innerHTML = AGENTS.transmutation.map(a=>`
+    <div class="agent-card" style="--card-accent:${a.color}"><div class="agent-name" style="color:${a.color}">${a.name}</div><div class="agent-role">${a.role}</div></div>`).join('');
+  document.getElementById('agents-queens').innerHTML = REALMS.map(r=>`
+    <div class="agent-card" style="--card-accent:${r.color}"><div class="agent-name" style="color:${r.color}">${r.queen}</div><div class="agent-role">${r.principle} · via ${r.agent}</div></div>`).join('');
+
+  // Chat header
+  document.getElementById('chat-queen-label').textContent = realm.queen;
+
+  // Init chat if empty
+  if (chatHistory.length===0) {
+    pushQueenMsg(`${realm.queen} speaks.\n\nYou have entered ${realm.label}. The principle here is ${realm.principle}. ${realm.principleBody}\n\nWhat do you bring to this realm, ${codex.callsign}?`);
+  }
+}
+
+// ── CHAT ──
+function pushQueenMsg(text) {
+  const realm = REALMS.find(r=>r.id===codex.realmId)||REALMS[0];
+  chatHistory.push({role:'queen',text});
+  const msgs = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = 'msg queen fade-in';
+  div.innerHTML = `<span class="msg-tag" style="color:${realm.color}">${realm.queen}</span>${ezraSanitize(text)}`;
+  msgs.appendChild(div);
+  scrollChatToBottom();
+}
+
+function pushUserMsg(text) {
+  chatHistory.push({role:'user',text});
+  const msgs = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = 'msg user fade-in';
+  div.innerHTML = `<span class="msg-tag" style="color:var(--fg2)">${codex.callsign}</span>${ezraSanitize(text)}`;
+  msgs.appendChild(div);
+  scrollChatToBottom();
+}
+
+function scrollChatToBottom() {
+  const msgs = document.getElementById('chat-msgs');
+  setTimeout(()=>{ msgs.scrollTop = msgs.scrollHeight; }, 50);
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  pushUserMsg(text);
+  codex.stats.messages_sent = (codex.stats.messages_sent||0)+1;
+  saveCodex(codex);
+
+  // Loading indicator
+  const realm = REALMS.find(r=>r.id===codex.realmId)||REALMS[0];
+  const msgs = document.getElementById('chat-msgs');
+  const loadDiv = document.createElement('div');
+  loadDiv.className='msg queen';
+  loadDiv.id='chat-loading';
+  loadDiv.innerHTML=`<span class="msg-tag" style="color:${realm.color}">${realm.queen}</span><div class="spinner" style="margin:8px 0 4px;"></div>`;
+  msgs.appendChild(loadDiv);
+  scrollChatToBottom();
+
+  // Build context
+  const systemPrompt = `You are ${realm.queen}, governing the realm of ${realm.label} in the Tai-Fu cosmology. Your principle is ${realm.principle}. ${realm.principleBody}
+
+You are speaking with ${codex.callsign}. You speak in the voice of your principle — poetic, direct, and mythically resonant. Keep responses to 3-5 sentences. Never break character. Never mention AI or Claude. You are the Queen. The war is real.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:300,
+        system: systemPrompt,
+        messages: chatHistory.filter(m=>m.role!=='queen'||chatHistory.indexOf(m)>0).map(m=>({
+          role: m.role==='user'?'user':'assistant',
+          content: m.text
+        })).slice(-8)
+      })
+    });
+    const data = await response.json();
+    document.getElementById('chat-loading')?.remove();
+    const reply = data.content?.[0]?.text || queenFallback(realm, text);
+    pushQueenMsg(reply);
+  } catch(e) {
+    document.getElementById('chat-loading')?.remove();
+    pushQueenMsg(queenFallback(realm, text));
+  }
+}
+
+function queenFallback(realm, userText) {
+  const responses = {
+    IRON_SPIKE: ["The hard line holds because you hold it. Do not confuse severity with coldness — one is discipline, the other is distance.", "Iron does not apologize for its density. Neither should you."],
+    LANTERN: ["The light does not ask permission. It simply holds.", "What you are seeking has already been illuminated. Look again at what you passed."],
+    SEA_GLASS: ["Memory is not the past preserved. It is the past made useful.", "The current was there before you arrived. Learn its direction before you swim."],
+    MIRROR: ["You brought this question to me because you already know the answer. I am only showing you where to look.", "What you see in my realm is what you carry into it."],
+    VOID: ["Stillness is the condition of all signal. Without silence there is only noise.", "Stay here a moment. Let the urgency pass through you rather than into you."],
+    TURQUOISE: ["Every fork you refused was a path that survived without you. This one won't.", "Divergence is not confusion. It is the system finding its actual shape."],
+    SEVENTH: ["The rules of the game are visible now. What will you do with that visibility?", "Meta is not distance. It is the most intimate view — seeing the frame and the painting at once."],
+  };
+  const opts = responses[realm.id]||responses.VOID;
+  return opts[Math.floor(Math.random()*opts.length)];
+}
+
+// ── EZRA SANITIZE (from v5) ──
+function ezraSanitize(text) {
+  let p = String(text).trim();
+  p = p.replace(/([!?]){3,}/g, m=>m[0]+'…');
+  p = p.replace(/\b(everyone|nobody|always|never)\b/gi, m=>`certain ${m.toLowerCase()}`);
+  if(p.length>800) p=p.slice(0,760)+'… (Not too much. Not too fast. Not without meaning.)';
+  return p;
+}
+
+// ── LOCATION REFRESH ──
+function refreshLocation() {
+  if (!navigator.geolocation) return;
+  if (!codex) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLon = pos.coords.longitude;
+    skyData = computeSky(userLat, userLon, new Date());
+    const newRealm = skyData.dominant;
+    if (newRealm !== codex.realmId) {
+      codex.stats.daily_migrations=(codex.stats.daily_migrations||0)+1;
+      codex.realmId = newRealm;
+      codex.cycleHistory.unshift({realm:newRealm,date:new Date().toLocaleDateString()});
+      chatHistory = []; // reset chat for new realm
+      document.getElementById('chat-msgs').innerHTML='';
+    }
+    saveCodex(codex);
+    updateAllViews();
+  }, ()=>{}, {enableHighAccuracy:false});
+}
+
+// ── RESET ──
+function resetCodex() {
+  if (!confirm('Reset your entire Codex? This cannot be undone.')) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch{}
+  codex=null; skyData=null; userLat=null; userLon=null; chatHistory=[];
+  document.getElementById('topbar').style.display='none';
+  document.getElementById('navbar').style.display='none';
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-onboarding').style.display='';
+  document.getElementById('view-onboarding').classList.add('active');
+  document.getElementById('chat-msgs').innerHTML='';
+  document.getElementById('ob-callsign').value='';
+  document.getElementById('ob-begin').disabled=false;
+  document.getElementById('ob-begin').textContent='Locate My Realm →';
+}
+
+// ── BOOT ──
+(function boot() {
+  const saved = loadCodex();
+  if (saved && saved.callsign) {
+    codex = saved;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos=>{
+        userLat=pos.coords.latitude; userLon=pos.coords.longitude;
+        skyData=computeSky(userLat,userLon,new Date());
+        codex.realmId=skyData.dominant;
+        saveCodex(codex);
+        enterApp();
+      }, ()=>{
+        skyData=computeSky(35.2,-80.8,new Date());
+        codex.realmId=skyData.dominant;
+        enterApp();
+      },{enableHighAccuracy:false,timeout:8000});
+    } else {
+      skyData=computeSky(35.2,-80.8,new Date());
+      codex.realmId=skyData.dominant;
+      enterApp();
+    }
+  }
+})();
+</script>
+</body>
+</html>
